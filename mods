@@ -1,0 +1,76 @@
+#!/bin/bash
+#####################################################################################################################
+# this script is version 2 of filemodcheck. in that script only one path could be checked at a time, but i would like
+# to add the ability to check an unlimited amount of directories at once. the main purpose of this program is to be
+# used in tandem with the backup script i created that creates a backup archive of a few select directories, but i
+# want that program to only run if there have been file modifications. this program will be called by that one to
+# provide it with that information.
+#####################################################################################################################
+
+#####################################################################################################################
+if [ -z $1 ]; then # there has to be at least one path entered
+    echo error: no path entered
+    exit
+fi
+#####################################################################################################################
+
+#####################################################################################################################
+# this is the function that does the modification check
+#####################################################################################################################
+filemodcheck ()
+{
+    PTC=$1                                                             # this is the path we are checking
+    if [ -f /home/nick/.filemodcheck/dir${PTC////-}0.txt ]; then       # check for previous dump
+	echo there appears to be a previous dump for this directory    # EPD (exists previous dump)
+	EPD=0                                                          # file '0' exists
+    elif [ -f /home/nick/.filemodcheck/dir${PTC////-}1.txt ]; then
+	echo there appears to be a previous dump for this directory
+	EPD=1                                                          # file '1' exists
+    else
+	echo there appears to be no previous check on this directory, making first dump now...
+	EPD=2                                                          # there is no dump for this directory yet
+    fi
+    
+    if [ $EPD -eq 0 ]; then                                            # check for modifications
+	echo making new dump for comparison...
+	ls -R --full-time $PTC > /home/nick/.filemodcheck/dir${PTC////-}1.txt
+	echo checking for modifications now...
+	diff /home/nick/.filemodcheck/dir${PTC////-}0.txt /home/nick/.filemodcheck/dir${PTC////-}1.txt
+	DIF=$?                                                         # DIF (difference) 0 same, 1 different
+	rm /home/nick/.filemodcheck/dir${PTC////-}0.txt
+    elif [ $EPD -eq 1 ]; then
+	echo making new dump for comparison...
+	ls -R --full-time $PTC > /home/nick/.filemodcheck/dir${PTC////-}0.txt
+	echo checking for modifications now...
+	diff /home/nick/.filemodcheck/dir${PTC////-}1.txt /home/nick/.filemodcheck/dir${PTC////-}0.txt
+	DIF=$?
+	rm /home/nick/.filemodcheck/dir${PTC////-}1.txt
+    elif [ $EPD -eq 2 ]; then
+	ls -R --full-time $PTC > /home/nick/.filemodcheck/dir${PTC////-}0.txt
+	echo first dump made successfully, run this script again on the same directory to check for modifications.
+	DIF=2                                                          # first dump made
+    fi
+    return $DIF  # return a value to indicate whether or not modifications have been found
+}
+#####################################################################################################################
+
+#####################################################################################################################
+# this is the driver program
+#####################################################################################################################
+for DIR in "$@"                  # this will cicle through each parameter entered one at a time
+do
+    echo $DIR
+    filemodcheck $DIR            # this will call the mod check function for each directory entered
+    RB=$?                        # (run backup) whether or not the backup should be run
+    if [ $RB -eq 0 ]; then       # if no modifications were found we return a 0, if found return a 1
+	echo no modifications
+    elif [ $RB -eq 1 ]; then
+	echo modifications found
+	exit $RB                 # no need to keep going at this point
+    elif [ $RB -eq 2 ]; then
+	echo first dump created for future comparison
+    fi
+    echo
+done
+exit $RB                         # $RB should be a 0 if this line is reached
+#####################################################################################################################
