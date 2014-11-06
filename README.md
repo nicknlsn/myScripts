@@ -1,4 +1,4 @@
 myScripts
 =========
 
-a repository to hold all the scripts that i have written myself
+A repository to hold all the scripts that I have written myself.
