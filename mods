@@ -1,9 +1,9 @@
 #!/bin/bash
 #####################################################################################################################
-# this script is version 2 of filemodcheck. in that script only one path could be checked at a time, but i would like
-# to add the ability to check an unlimited amount of directories at once. the main purpose of this program is to be
-# used in tandem with the backup script i created that creates a backup archive of a few select directories, but i
-# want that program to only run if there have been file modifications. this program will be called by that one to
+# This script is version 2 of filemodcheck. In that script only one path could be checked at a time, but I would like
+# to add the ability to check an unlimited number of directories at once. The main purpose of this program is to be
+# used in tandem with the backup script I created that creates a backup archive of a few select directories, but I
+# want that program to only run if there have been file modifications. This program will be called by that one to
 # provide it with that information.
 #####################################################################################################################
 
