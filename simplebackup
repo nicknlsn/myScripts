@@ -1,0 +1,139 @@
+#!/bin/bash
+TIME="$(date +%m-%d-%Y-%H:%M)" # this is used for the log command at the very end of the script
+(
+    # we need to see if creating a new backup is neccessary
+    /bin/myScripts/mods /home/nick/Documents/ /home/nick/Downloads/ /home/nick/Pictures/ /home/nick/school/ /home/nick/workspace/ /home/nick/.ssh/ /home/nick/.devilspie/ /home/nick/.bash_aliases /bin/myScripts
+    RB=$?
+    if [ $RB -eq 0 ]; then
+	echo no need to make another backup
+	exit
+    elif [ $RB -eq 1 ]; then
+	echo there have been modifications, make a new backup
+	TIME="$(date +%m-%d-%Y-%H:%M)" # create time variable for file name, time when archive happens will be different time when upload happens 
+# first find out if the backup drive is mounted.
+# if it is we will just use the existing path and
+# leave it mounted, if it is not we will mount it
+# temporarily, and once the backup process is
+# complete we will unmount it again.
+	echo checking for disk...
+	df | grep sdc1
+	ISMOUNTED=$?	    # a 0 or a 1, 0 for mounted, 1 for unmounted
+	if [ $ISMOUNTED -eq 1 ] # if our drive isn't mounted lets mount it. 
+	then		    # mount the drive
+	    echo disk not mounted, creating temporary mount point...
+	    mkdir /media/nick/320
+	    sleep 1
+	    if [ $? -eq 0 ]
+	    then
+		echo successfully created mount point, mounting disk...
+	    else
+		echo could not create mount point, exiting.
+		exit
+	    fi
+	    mount /dev/sdc1 /media/nick/320/
+	    sleep 1 # just to give the drive time to mount
+	    if [ $? -eq 0 ]
+	    then
+		echo successfully mounted disk, cleaning up old backups...
+	    else
+		echo could not mount disk, exiting.
+		exit
+	    fi
+	else
+	    echo disk already mounted, moving on to clean up old backups...
+	fi
+	
+# lets first delete old archives and free up space.
+# anything older than 30 days has got to go!
+	find /media/nick/320/backup/* -mtime +30 -exec rm {} \;
+	if [ $? -eq 0 ]
+	then
+	    echo clean up successful, creating archive...
+	else
+	    echo unsuccessful, either there was nothing to clean up or something went wrong with the process
+	    echo this process is not crucial to the backup, therefore the script will continue. creating archive...
+	fi
+	
+# create the backup archive. we use pigz because it supports multi-threading
+	tar -czf - /home/nick/Documents/ /home/nick/Downloads/ /home/nick/Pictures/ /home/nick/school/ /home/nick/workspace/ /home/nick/.ssh/ /home/nick/.devilspie/ /home/nick/.bash_aliases /bin/myScripts | pigz > /media/nick/320/backup/thorHome-$TIME.tgz # old: %Y%m%d other: %D-%I:%M%p
+	if [ $? -eq 0 ]
+	then
+	    echo archive created successfully, changing ownership of archive...
+	else
+	    echo archive creation unsuccessful, exiting.
+	    exit
+	fi
+	
+# this script has to be run as root, which means the backup archive
+# is owned by root. Lets change the owner and group to the
+# normal user.
+	chown -R nick:nick /media/nick/320
+	if [ $? -eq 0 ]
+	then
+	    echo ownership changed successfully, beginning upload sequence...
+	else
+	    echo could not change ownership of archive. this is not crucial, the script will continue...
+	fi
+	
+# send a copy to the rpi server
+	echo first cleaning up old archives on rpi server...
+	ssh -p 5566 pi@192.168.0.100 "find /media/owncloud/nicknlsn/files/thorBackup/* -mtime +30 -exec rm {} \;"
+	if [ $? -eq 0 ]
+	then
+	    echo clean up successful, uploading new archive...
+	else
+	    echo unsuccessful, either there was nothing to clean up or something went wrong
+	    echo this process is not crucial to the backup, therefor the script will continue. uploading new archive...
+	fi
+	
+	scp -P 5566 /media/nick/320/backup/thorHome-$TIME.tgz pi@192.168.0.100:/media/owncloud/nicknlsn/files/thorBackup/
+	if [ $? -eq 0 ]
+	then
+	    if [ $ISMOUNTED -eq 1 ]
+	    then
+		echo upload successful, unmounting drive and deleting temporary mount point...
+	    else
+		echo upload successful, leaving back up drive mounted
+	    fi
+	else
+	    echo upload failed, exiting.
+	    exit
+	fi
+	
+# if the drive was unmounted we'll leave it unmounted.
+	if [ $ISMOUNTED -eq 1 ]
+	then	# unmount the drive
+	    umount /dev/sdc1
+	    sleep 1 # in case the drive needs time to unmount before the mount point can be deleted.
+	    if [ $? -eq 0 ]
+	    then
+		echo unmount successful, deleting mount point...
+	    else
+		echo unmount failed, unmount the drive manually and delete the mount point as root.
+	    fi
+	    rmdir /media/nick/320 # remove temporary mount directory
+	    if [ $? -eq 0 ]
+	    then
+		echo mount point deleted successfully
+	    else
+		echo could not delete mount point, delete it manually as root.
+	    fi
+	fi
+	
+	echo Deleting old logs...
+	find /root/thorBackupLog/* -mtime +30 -exec rm {} \; # delete old logs
+	if [ $? -eq 0 ]
+	then
+            echo deleted old logs successfully, nothing else to do, exiting.
+	else
+            echo could not delete old logs, delete them manually as root.
+	    echo nothing else to do, exiting.
+	    exit
+	fi
+    elif [ $RB -eq 2 ]; then
+        echo modifications are unkown
+    fi
+    
+) > /root/thorBackupLog/thorBackup-$TIME.log
+
+exit
