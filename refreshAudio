@@ -1,4 +1,8 @@
 #!/bin/bash
+# 
+# http://support.hengedocks.com/support/solutions/articles/1000087271-why-won-t-the-microphone-work-on-my-headset-
+#
+# this script is a better solution to the ones described in the link above.
 # this script will refresh the audio components for when i dock my mac
 # and my headphones with an inline mic are not plugged in. when i plug
 # my headphones in the inline mic won't be recognized, so this will 
