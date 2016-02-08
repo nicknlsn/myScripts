@@ -1,0 +1,15 @@
+#!/bin/bash
+# this script will refresh the audio components for when i dock my mac
+# and my headphones with an inline mic are not plugged in. when i plug
+# my headphones in the inline mic won't be recognized, so this will 
+# fix that. 
+#
+# note: if any audio is going when this script is run, the app running 
+# that audio will likely need to be restarted to get audio from that 
+# app to work again. this script can be improved to account for this 
+# situation either by killing apps producing audio, or telling you to
+# pause the audio before the script will proceed.
+
+sudo killall coreaudiod
+sudo kextunload /System/Library/Extensions/AppleHDA.kext
+sudo kextload /System/Library/Extensions/AppleHDA.kext
